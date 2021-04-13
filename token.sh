@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
+_ENTERPRISE_RUNNER=${ENTERPRISE_RUNNER:-false}
 _ORG_RUNNER=${ORG_RUNNER:-false}
 _GITHUB_HOST=${GITHUB_HOST:="github.com"}
 
@@ -22,16 +24,21 @@ _PATH="$(echo "${_URL}" | grep / | cut -d/ -f2-)"
 _ACCOUNT="$(echo "${_PATH}" | cut -d/ -f1)"
 _REPO="$(echo "${_PATH}" | cut -d/ -f2)"
 
-_FULL_URL="${URI}/repos/${_ACCOUNT}/${_REPO}/actions/runners/registration-token"
-if [[ ${_ORG_RUNNER} == "true" ]]; then
+if [[ ${_ENTERPRISE_RUNNER} == "true" ]]; then
+  [[ -z ${ENTERPRISE_NAME} ]] && ( echo "ENTERPRISE_NAME required for enterprise runners"; exit 1 )
+  _FULL_URL="${URI}/enterprises/${ENTERPRISE_NAME}/actions/runners/registration-token"
+  _SHORT_URL="${_PROTO}${_GITHUB_HOST}/enterprises/${ENTERPRISE_NAME}"
+elif [[ ${_ORG_RUNNER} == "true" ]]; then
   [[ -z ${ORG_NAME} ]] && ( echo "ORG_NAME required for org runners"; exit 1 )
   _FULL_URL="${URI}/orgs/${ORG_NAME}/actions/runners/registration-token"
   _SHORT_URL="${_PROTO}${_GITHUB_HOST}/${ORG_NAME}"
 else
-  _SHORT_URL=$REPO_URL
+  _FULL_URL="${URI}/repos/${_ACCOUNT}/${_REPO}/actions/runners/registration-token"
+  _SHORT_URL=${REPO_URL}
 fi
 
 RUNNER_TOKEN="$(curl -XPOST -fsSL \
+  --connect-timeout 5 \
   -H "${AUTH_HEADER}" \
   -H "${API_HEADER}" \
   "${_FULL_URL}" \
